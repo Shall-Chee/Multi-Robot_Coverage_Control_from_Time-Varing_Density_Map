@@ -1,70 +1,28 @@
-
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-
-import sys
-from sklearn.cluster import KMeans
-import argparse
-# import random
 from scipy.spatial import Voronoi, voronoi_plot_2d, Delaunay
-import time
 
+from param import *
+from helpers import *
 
-class cvt():
-
-    def __init__(self, distribution, robots_count, robot_positions):
-
-        self.robots_count = robots_count
+class CVT:
+    def __init__(self, distribution, robot_cnt, robot_pos):
+        self.robot_cnt = robot_cnt
         self.distribution = distribution
-
         self.distribution = np.clip(self.distribution, 0.01, 255)
-
-        # max_ = np.max(distribution)
-        # max_ind = np.where(distribution >= max_ - 1) # np.max(a) = 254
         sorted_distribution = np.argsort(self.distribution.ravel())
-        
-        # print(sorted_distribution)
         sorted_index = np.dstack(np.unravel_index(sorted_distribution, (len(self.distribution),len(self.distribution[0]))))[0]
-        max_ind = sorted_index[-robots_count:]
-
-        # plt.clf()
-        # v_plot = plt.imshow(a)
-        # plt.gca().invert_yaxis()
-        # colorbar = plt.colorbar()
-
-        # plt.plot(max_ind[1], max_ind[0], 'ro')
-
-        # robot_positions = np.random.random((robots_count,2)) * 255
-        # robot_positions = np.zeros(5,2)
-
-        # task_agents = self.robots_count
-
-
-        self.robot_positions = robot_positions
-        print(self.robot_positions)
-
-        # self.robot_positions = np.array([[1, 40], [40, 50], [75, 0], [85, 0], [120, 115]])
-#         self.robot_positions = np.array([[  6.31808567 ,  1.75807792],
-#  [ 25.26284896 ,123.77443459],
-#  [ 15.19486774  ,33.07753588],
-#  [  1.24577142  ,60.85128164],
-#  [ 70.66037511  ,61.82643254]])
-
-        # self.robot_positions = np.array([[25,5],[30,30],[15,70],[37,110],[75,60]])
-        # robot_positions = max_ind
-
-        self.vor = Voronoi(np.array(self.robot_positions))
+        max_ind = sorted_index[-robot_cnt:]
+        self.robot_pos = robot_pos
+        print(self.robot_pos)
+        self.vor = Voronoi(np.array(self.robot_pos))
         fig = voronoi_plot_2d(self.vor)
-
         self.distribution = np.transpose(self.distribution)
         v_plot = plt.imshow(self.distribution)
         plt.gca().invert_yaxis()
         colorbar = plt.colorbar()
-
-        # max_ind
-
-        plt.plot(self.robot_positions.T[0], self.robot_positions.T[1], 'ro', label = 'robot_position')
+        plt.plot(self.robot_pos.T[0], self.robot_pos.T[1], 'ro', label = 'robot_position')
         plt.xlim(0 - len(self.distribution) * 0.1, len(self.distribution) * 1.1)
         plt.ylim(0 - len(self.distribution) * 0.1, len(self.distribution) * 1.1)
 
@@ -95,12 +53,9 @@ class cvt():
         """
         
         new_regions = []
-        new_vertices = self.vor.vertices.tolist()  #Coordinates of the Voronoi vertices.
+        new_vertices = self.vor.vertices.tolist()  # Coordinates of the Voronoi vertices.
 
         center = self.vor.points.mean(axis=0)
-
-        # print(vor.ridge_points, vor.ridge_vertices)
-
         # Construct a map containing all ridges for a given point
         # Graph for each point
         all_ridges = {}
@@ -113,12 +68,6 @@ class cvt():
         for p1, region in enumerate(self.vor.point_region): #Index of the Voronoi region for each input point. 
             vertices = self.vor.regions[region] # Indices of the Voronoi vertices forming each Voronoi region
 
-
-            # if all(v >= 0 for v in vertices):
-            #     # finite region
-            #     new_regions.append(vertices)
-            #     continue
-
             # reconstruct a non-finite region
             ridges = all_ridges[p1]
             new_region = [v for v in vertices if v >= 0]
@@ -129,7 +78,6 @@ class cvt():
                 v1_coor = self.vor.vertices[v1]
                 v2_coor = self.vor.vertices[v2]            
 
-                # if v2 < 0 or self.outside_plot(v2_coor):
                 if v2 < 0:
                     v1, v2 = v2, v1
                     v1_coor, v2_coor = v2_coor, v1_coor
@@ -210,8 +158,6 @@ class cvt():
                     new_vertices.append([0, len(self.distribution)])
                     new_vertices.append([len(self.distribution[0]), len(self.distribution)])                                     
             elif ymin <= 0 and ymax >= 128:
-                # print(new_vertices[:,1].argsort())
-                # print(np.array(new_vertices)[[new_region]][:,1].argsort())
                 new_vertices_coor = np.array(new_vertices)[new_region]
                 new_vertices_sorted = new_vertices_coor[new_vertices_coor[:,1].argsort()]
                 new_region.append(len(new_vertices))
@@ -225,8 +171,6 @@ class cvt():
                 else:
                     new_vertices.append([0, 0])
                     new_vertices.append([0, len(self.distribution)])   
-
-
 
             # sort region counterclockwise
             vs = np.asarray([new_vertices[v] for v in new_region]) # New indices of the Voronoi vertices forming each Voronoi region
@@ -244,9 +188,6 @@ class cvt():
             x_intersect = (xmax - v1_coor[0]) / (v2_coor[0] - v1_coor[0]) * (v2_coor[1] - v1_coor[1]) + v1_coor[1]
             if x_intersect >= 0 and x_intersect < len(distribution[0]):
                 far_point = np.array([xmax, x_intersect])
-                # print(v1_coor)
-                # print(new_vertices)
-                # ind = new_vertices.index(v1_coor)
                 if v1 in new_region:
                     new_region.remove(v1)
                 new_region.append(len(new_vertices))
@@ -257,9 +198,6 @@ class cvt():
             y_intersect = (ymax - v1_coor[1]) / (v2_coor[1] - v1_coor[1]) * (v2_coor[0] - v1_coor[0]) + v1_coor[0]
             if y_intersect >= 0 and y_intersect < len(distribution):
                 far_point = np.array([y_intersect, ymax])
-                # print(v1_coor)
-                # print(new_vertices)
-                # ind = new_vertices.index(v1_coor)
                 if v1 in new_region:
                     new_region.remove(v1)
                 new_region.append(len(new_vertices))
@@ -276,20 +214,14 @@ class cvt():
 
 
     def compute_centroids(self, regions, vertices):
-
-        """ Compute the Voronoi tesselation and the corresponding centroids """
-
-
+        """ 
+        Compute the Voronoi tesselation and the corresponding centroids 
+        """
         vertices = np.asarray(vertices)
-        # print(regions)
-
         polygons = [vertices[t] for t in regions]
-
-        # centroids = np.zeros((len(self.robot_positions), 2))
         centroids = []
 
         for i in range(len(polygons)):
-        # for i in range(1):
             # extract grid extrema of the polygon
             polygon = polygons[i]
             xmin = np.min(polygon[:, 0])
@@ -298,7 +230,6 @@ class cvt():
             ymax = np.max(polygon[:, 1])
             
             # compute the centroid: equation 2 
-            
             N = 0
             D = 0
             if len(polygon) <= 1:
@@ -308,7 +239,6 @@ class cvt():
             for j in range(int(xmin), int(xmax)):
                 for k in range(int(ymin), int(ymax)):
                     p = np.array([j, k])
-                    # print(hull.find_simplex(p))
                     vo_ind = hull.find_simplex(p)
                     if vo_ind >= 0:
                         p = np.array([j, k])
@@ -321,25 +251,15 @@ class cvt():
                             continue
                         N += np.multiply(p, density)
                         D += density
-            # if D != 0:
             centroids.append(N / D)
         return np.array(centroids)
 
     def compute_h(self, regions, vertices, centroids):
-
         vertices = np.asarray(vertices)
-        # plt.plot(vertices[:,0], vertices[:,1],'bo', label = 'vertices')
-        # print(regions)
-
         polygons = [vertices[t] for t in regions]
-
-        # centroids = np.zeros((len(self.robot_positions), 2))
-        # centroids = []
         h = []
-        # N = np.zeros(len(centroids))
 
         for i in range(len(polygons)):
-        # for i in range(1):
             # extract grid extrema of the polygon
             polygon = polygons[i]
             xmin = np.min(polygon[:, 0])
@@ -348,9 +268,7 @@ class cvt():
             ymax = np.max(polygon[:, 1])
             
             # compute the centroid: equation 2 
-            
             cost = 0
-            # D = 0
             if len(polygon) <= 1:
                 continue
             hull = Delaunay(polygon)
@@ -358,7 +276,6 @@ class cvt():
             for j in range(int(xmin), int(xmax)):
                 for k in range(int(ymin), int(ymax)):
                     p = np.array([j, k])
-                    # print(hull.find_simplex(p))
                     vo_ind = hull.find_simplex(p)
                     if vo_ind >= 0:
                         p = np.array([j, k])
@@ -373,98 +290,74 @@ class cvt():
                         # cost += density
 
             h.append(cost)
-            #             D += density
-            # if D != 0:
-            #     centroids.append(N / D)
         return np.array(h)
 
-robots_count = 6
-distribution = np.load('/Users/xiaoqi/Downloads/Kumar Lab/lab material/target_distribution.npy')
-
-x_min, x_max, y_min, y_max = 0, 127, 0, 127
-bbx = np.asarray([x_min, x_max, y_min, y_max])
-robot_positions = np.random.random((robots_count,2)) * (bbx[1::2] - bbx[0::2]) + bbx[0::2]
-
-robot_positions = np.array(robot_positions)
-# robot_positions = np.array([[6.31808567 ,  1.75807792],
-# [ 25.26284896,123.77443459],
-# [ 15.19486774,33.07753588],
-# [  1.24577142,60.85128164],
-# [ 70.66037511,61.82643254]])
-
-# robot_positions = np.array([[  1.47235712 , 92.617959  ],
-#  [ 82.7358943 ,  42.3577841 ],
-#  [ 52.59757841 , 97.05911685],
-#  [100.11363943 , 65.8821007 ],
-#  [121.74576803  ,51.79748087]])
-# ims = []
-# fig2 = plt.figure()
-for i in range(25):
-    cvt_ = cvt(distribution, robots_count, robot_positions)
-
-    regions, vertices = cvt_.voronoi_finite()
-    vertices = np.asarray(vertices)
-    plt.plot(vertices[:,0], vertices[:,1],'bo', label = 'vertices')
-    centroids = cvt_.compute_centroids(regions, vertices)
-    plt.plot(centroids.transpose()[0], centroids.transpose()[1], 'go', label = 'centroids')
-    # print(centroids)
-    # update
-    diff = (robot_positions - centroids)
-    diff_2 = diff * diff
-    sum_ = np.sqrt(np.sum(diff_2, axis=1))
-    new_robot_positions = centroids.copy()
+if __name__ == "__main__":
+    # Read distribution/density map
+    distribution = np.load('./target_distribution.npy')  
+    scatter_ratio = np.random.random((robot_cnt, 2))
+    robot_pos = interp([X_MIN, Y_MIN], [X_MAX, Y_MAX], scatter_ratio)
     
-    upper_bound = 10
-    for i in range(len(sum_)):
-        if sum_[i] > upper_bound:
-            new_robot_positions[i] = robot_positions[i] + upper_bound / sum_[i] * (centroids[i] - robot_positions[i])
-
-
-    # centroids = centroids.T
-
-
-    # huristic
-    cost = cvt_.compute_h(regions, vertices, centroids)
-    min_ind = np.argmin(cost)
-    max_ind = np.argmax(cost)
-    diff_min_max = new_robot_positions[max_ind] - new_robot_positions[min_ind]
-    diff_min_max_2 = sum(diff_min_max * diff_min_max)
-    sum_local = np.sqrt(np.sum(diff_min_max_2))
-    upper_bound_local = 35
-    upper_bound_local_step = 20
-    # if diff_min_max_2 > upper_bound:
-    if sum_local > upper_bound_local:
-        new_robot_positions[min_ind] =  new_robot_positions[min_ind] + upper_bound_local_step / sum_local * (new_robot_positions[max_ind] - new_robot_positions[min_ind])
-    new_robot_positions = new_robot_positions.copy()
-    plt.plot(new_robot_positions.transpose()[0], new_robot_positions.transpose()[1], 'co', label = 'new_robot_position')
-
+    # Simulate
+    for s in range(max_timestep):
+        cvt_ = CVT(distribution, robot_cnt, robot_pos)
+        regions, vertices = cvt_.voronoi_finite()
+        vertices = np.asarray(vertices)
+        plt.plot(vertices[:,0], vertices[:,1],'bo', label = 'vertices')
+        centroids = cvt_.compute_centroids(regions, vertices)
+        plt.plot(centroids.transpose()[0], centroids.transpose()[1], 'go', label = 'centroids')
+        diff = (robot_pos - centroids)
+        diff_2 = diff * diff
+        sum_ = np.sqrt(np.sum(diff_2, axis=1))
+        new_robot_pos = centroids.copy()
+        
+        # set upper bound for target position
+        upper_bound = 10
+        for i in range(len(sum_)):
+            if sum_[i] > upper_bound:
+                new_robot_pos[i] = robot_pos[i] + upper_bound / sum_[i] * (centroids[i] - robot_pos[i])
     
-    plt.quiver(robot_positions.transpose()[0], robot_positions.transpose()[1], (new_robot_positions - robot_positions).transpose()[0], (new_robot_positions - robot_positions).transpose()[1],angles='xy', scale_units='xy', scale=1)
-    plt.legend(loc = "upper left")
-    plt.title(f'number of robots = {robots_count}')
-    plt.ion()
-    plt.pause(0.001)  
-
-    #break condition
-    new_diff = robot_positions - new_robot_positions
-    new_diff_2 = new_diff * new_diff
-    sum_new = np.sum(new_diff_2)
-
-    if sum_new < 0.1 or i == 24:
-        plt.pause(5)
-        break
-
-    plt.close()
-    robot_positions = new_robot_positions.copy()
+        # huristic
+        cost = cvt_.compute_h(regions, vertices, centroids)
+        min_ind = np.argmin(cost)
+        max_ind = np.argmax(cost)
+        diff_min_max = new_robot_pos[max_ind] - new_robot_pos[min_ind]
+        diff_min_max_2 = sum(diff_min_max * diff_min_max)
+        sum_local = np.sqrt(np.sum(diff_min_max_2))
+        upper_bound_local = 35
+        upper_bound_local_step = 20
+        if sum_local > upper_bound_local:
+            new_robot_pos[min_ind] =  new_robot_pos[min_ind] + upper_bound_local_step / sum_local * (new_robot_pos[max_ind] - new_robot_pos[min_ind])
+        new_robot_pos = new_robot_pos.copy()
+        plt.plot(new_robot_pos.transpose()[0], new_robot_pos.transpose()[1], 'co', label = 'new_robot_position')
     
-
+        
+        plt.quiver(robot_pos.transpose()[0], robot_pos.transpose()[1], (new_robot_pos - robot_pos).transpose()[0], (new_robot_pos - robot_pos).transpose()[1],angles='xy', scale_units='xy', scale=1)
+        plt.legend(loc = "upper left")
+        plt.title(f'number of robots = {robot_cnt}')
+        plt.ion()
+        plt.pause(0.001)  
     
-    # ims.append((plt.plot(centroids[0], centroids[1], 'go', label = 'centroids')))
-
-
-# im_ani = animation.ArtistAnimation(fig2, ims, interval=50, repeat_delay=3000,
-#                                    blit=True)
-
-# plt.show()
+        #break condition
+        new_diff = robot_pos - new_robot_pos
+        new_diff_2 = new_diff * new_diff
+        sum_new = np.sum(new_diff_2)
+    
+        if sum_new < 0.1 or i == 24:
+            plt.pause(5)
+            break
+    
+        plt.close()
+        robot_pos = new_robot_pos.copy()
+        
+    
+        
+        # ims.append((plt.plot(centroids[0], centroids[1], 'go', label = 'centroids')))
+    
+    
+    # im_ani = animation.ArtistAnimation(fig2, ims, interval=50, repeat_delay=3000,
+    #                                    blit=True)
+    
+    # plt.show()
 
     
