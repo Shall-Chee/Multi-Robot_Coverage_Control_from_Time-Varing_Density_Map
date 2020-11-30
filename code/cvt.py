@@ -1,7 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.animation as animation
 from scipy.spatial import Voronoi, voronoi_plot_2d, Delaunay
+import imageio
+import os
+import shutil
 
 from param import *
 from helpers import *
@@ -190,6 +192,8 @@ class CVT:
                 new_region.append(len(new_vertices))
                 new_vertices.append(far_point.tolist())
 
+                self.new_lines.append(([far_point[0], v2_coor[0]], [far_point[1], v2_coor[1]]))
+
         if v1_coor[1] < 0 or v1_coor[1] > len(self.distribution):
             ymax = len(self.distribution) if v1_coor[1] > len(self.distribution) else 0
             y_intersect = (ymax - v1_coor[1]) / (v2_coor[1] - v1_coor[1]) * (v2_coor[0] - v1_coor[0]) + v1_coor[0]
@@ -199,6 +203,12 @@ class CVT:
                     new_region.remove(v1)
                 new_region.append(len(new_vertices))
                 new_vertices.append(far_point.tolist())
+
+                self.new_lines.append(([v1_coor[0], far_point[0]], [v1_coor[1], far_point[1]]))
+
+        if not (v1_coor[0] < 0 or v1_coor[0] > len(self.distribution[0])) and not (v1_coor[1] < 0 or v1_coor[1] > len(self.distribution)) and\
+            not (v2_coor[0] < 0 or v2_coor[0] > len(self.distribution[0])) and not (v2_coor[1] < 0 or v2_coor[1] > len(self.distribution)):
+            self.new_lines.append(([v1_coor[0], v2_coor[0]], [v1_coor[1], v2_coor[1]]))
 
         return new_region, new_vertices
 
@@ -263,7 +273,7 @@ class CVT:
             hull = Delaunay(polygon)
             indices = hull.find_simplex(points)
             density = np.where(indices >= 0, self.distribution[points[:, 1], points[:, 0]], 0)
-            cost = (((points - centroids[i])**2).sum(axis=1) * density).sum()
+            cost = (((points - centroids[i]) ** 2).sum(axis=1) * density).sum()
             h.append(cost)
         return np.array(h)
 
@@ -278,6 +288,7 @@ if __name__ == "__main__":
     distribution = np.load('./target_distribution.npy')
     scatter_ratio = np.random.random((robot_cnt, 2))
     robot_pos = interp([X_MIN, Y_MIN], [X_MAX, Y_MAX], scatter_ratio)  # generate robot on random initial positions
+    prev_robot_pos = robot_pos.copy()
 
     # Simulate
     global_flag = True  # flag indicating whether finishing allocation or not
@@ -285,57 +296,68 @@ if __name__ == "__main__":
     timestep = 0
     fig = plt.figure()
     ax = plt.gca()
-    x0, y0 = 0, 0
+
+    # Save Results
+    fig_dir = "./fig/"
+    if os.path.exists(fig_dir): shutil.rmtree(fig_dir)
 
     # Divide Regions on Distribution Map
     cvt = CVT(distribution, robot_cnt, robot_pos)
 
     while not done:
-        # Local Planner: Towards Centroid
-        local_error = np.sqrt(np.sum((cvt.centroids - robot_pos) ** 2, axis=1))
-        local_planner = interp(robot_pos, cvt.centroids, (local_move_limit / (local_error + eps)).clip(max=1)) - robot_pos
+        # Planning
+        if timestep % vor_duration == 0:
+            # Local Planner: Towards Centroid
+            local_error = np.sqrt(np.sum((cvt.centroids - robot_pos) ** 2, axis=1))
+            local_planner = interp(robot_pos, cvt.centroids,
+                                   (local_move_limit / (local_error + eps)).clip(max=1)) - robot_pos
 
-        # Global Planner: Better Allocate Cost
-        cost = cvt.compute_h(cvt.regions, cvt.vertices, cvt.centroids)
-        cost_order = np.argsort(cost)
-        min_ind, max_ind = cost_order[0], cost_order[-1]
-        if cost[min_ind] / cost[max_ind] > cost_ratio_thresh: global_flag = False  # finish reallocation
-        global_error = np.sqrt(np.sum((robot_pos[max_ind] - robot_pos[min_ind]) ** 2))
-        global_planner = np.zeros_like(robot_pos)
-        global_planner[min_ind] = interp(robot_pos[min_ind], robot_pos[max_ind],
-                                         (global_move_limit / (global_error + eps)).clip(max=1)) - robot_pos[min_ind]
+            # Global Planner: Better Allocate Cost
+            cost = cvt.compute_h(cvt.regions, cvt.vertices, cvt.centroids)
+            cost_order = np.argsort(cost)
+            min_ind, max_ind = cost_order[0], cost_order[-1]
+            if cost[min_ind] / cost[max_ind] > cost_ratio_thresh: global_flag = False  # finish reallocation
+            global_error = np.sqrt(np.sum((robot_pos[max_ind] - robot_pos[min_ind]) ** 2))
+            global_planner = np.zeros_like(robot_pos)
+            global_planner[min_ind] = interp(robot_pos[min_ind], robot_pos[max_ind],
+                                             (global_move_limit / (global_error + eps)).clip(max=1)) - robot_pos[min_ind]
 
-        # Get Total Action and Step
-        action = local_scale * local_planner + global_flag * global_scale * global_planner
+            target = local_scale * local_planner + global_flag * global_scale * global_planner + robot_pos
+
+        # Control
+        action = Kp * (target - robot_pos) + Kd * ((target - robot_pos) - (robot_pos - prev_robot_pos))
+        prev_robot_pos = robot_pos.copy()
         robot_pos += action
+        robot_pos[:, 0], robot_pos[:, 1] = robot_pos[:, 0].clip(X_MIN, X_MAX), robot_pos[:, 1].clip(Y_MIN, Y_MAX)
         timestep += 1
-        cvt.step(robot_pos)
+        if timestep % vor_duration == 0: cvt.step(robot_pos)
         done = np.linalg.norm(action) < pos_error_thresh or timestep > max_timestep
         print("Timestep: {}  Error: {:.4f}".format(timestep, np.linalg.norm(action)))
 
         # Render
-        # voronoi_plot_2d(Voronoi(np.vstack((robot_pos, DUMMY_CORNER))), ax=ax)
         voronoi_plot_2d(cvt.vor, ax=ax)
         for line in cvt.new_lines:
             plt.plot(line[0], line[1], 'k')
         v_plot = plt.imshow(cvt.distribution)
         plt.gca().invert_yaxis()
-        plt.plot((robot_pos - action)[:, 0], (robot_pos - action)[:, 1], 'ro', label='robot_position')
         plt.gcf().canvas.mpl_connect(
             'key_release_event',
             lambda event: [exit(0) if event.key == 'escape' else None])
         plt.xlim(X_MIN - X_SIZE * 0.1, X_MAX + X_SIZE * 0.1)
         plt.ylim(Y_MIN - Y_SIZE * 0.1, Y_MAX + Y_SIZE * 0.1)
         plt.plot(cvt.vertices[:, 0], cvt.vertices[:, 1], 'bo', label='vertices')
-        plt.plot(cvt.centroids[:, 0], cvt.centroids[:, 1], 'go', label='centroids')
-        plt.plot(robot_pos[:, 0], robot_pos[:, 1], 'co', label='new_robot_position')
+        # plt.plot(cvt.centroids[:, 0], cvt.centroids[:, 1], 'go', label='centroids')
+        # plt.plot(prev_robot_pos[:, 0], prev_robot_pos[:, 1], 'co', label='prev_robot_position')
+        plt.plot(robot_pos[:, 0], robot_pos[:, 1], 'ro', label='robot_position')
+        plt.plot(target[:, 0], target[:, 1], 'mo', label='target')
         plt.quiver(robot_pos[:, 0], robot_pos[:, 1], action[:, 0], action[:, 1], angles='xy', scale_units='xy', scale=1)
         plt.legend(loc="upper left")
         plt.title(f'number of robots = {robot_cnt}')
-        plt.pause(0.1)
+        gif_maker('coverage_control.gif', fig_dir, timestep, done, dpi=200)
+        plt.pause(0.01)
         plt.cla()
 
-        # Terminal State
+        # Terminal
         if done: break
 
     plt.close()
