@@ -13,6 +13,7 @@ class RobotEnv:
         self.init_pos = init_pos
 
         self.cvt = CVT(self.distribution, self.robot_cnt, self.init_pos)
+        self.prev_state = self.init_pos.copy()
         self.state = self.init_pos.copy()
         self.global_flag = True
         self.timestep = 0
@@ -41,31 +42,34 @@ class RobotEnv:
         return self.cvt.centroids
 
     def render(self):
-        voronoi_plot_2d(self.cvt.vor)
+        voronoi_plot_2d(self.cvt.vor, ax=ax)
+        for line in self.cvt.new_lines:
+            plt.plot(line[0], line[1], 'k')
         plt.imshow(self.cvt.distribution)
         plt.gca().invert_yaxis()
-        plt.colorbar()
-        plt.plot((self.state - self.get_action(self.get_target()))[:, 0],
-                 (self.state - self.get_action(self.get_target()))[:, 1], 'ro', label='robot_position')
         plt.xlim(X_MIN - X_SIZE * 0.1, X_MAX + X_SIZE * 0.1)
         plt.ylim(Y_MIN - Y_SIZE * 0.1, Y_MAX + Y_SIZE * 0.1)
+        plt.plot(self.prev_state[:, 0], self.prev_state[:, 1], 'ro', label='robot_position')
         plt.plot(self.cvt.vertices[:, 0], self.cvt.vertices[:, 1], 'bo', label='vertices')
         plt.plot(self.cvt.centroids[:, 0], self.cvt.centroids[:, 1], 'go', label='centroids')
         plt.plot(self.state[:, 0], self.state[:, 1], 'co', label='new_robot_position')
         plt.quiver(self.state[:, 0], self.state[:, 1],
-                   self.get_action(self.get_target())[:, 0],
-                   self.get_action(self.get_target())[:, 1], angles='xy', scale_units='xy', scale=1)
+                   self.state[:, 0] - self.prev_state[:, 0],
+                   self.state[:, 1] - self.prev_state[:, 1], angles='xy', scale_units='xy', scale=1)
         plt.legend(loc="upper left")
         plt.title(f'number of robots = {self.robot_cnt}')
-        plt.show()
+        plt.pause(0.1)
+        plt.cla()
 
     def reset(self):
         self.cvt = CVT(self.distribution, self.robot_cnt, self.init_pos)
+        self.prev_state = self.init_pos.copy()
         self.state = self.init_pos.copy()
         self.global_flag = True
         self.timestep = 0
 
     def step(self, action):
+        self.prev_state = self.state.copy()
         self.state += action
         self.timestep += 1
         self.cvt.step(self.state)
@@ -84,10 +88,15 @@ if __name__ == '__main__':
     env = RobotEnv(distribution, robot_pos)
     done = False
 
+    # Render
+    fig = plt.figure()
+    ax = plt.gca()
+    show_animation = True
+
     # Simulate
     while not done:
         target = env.get_target()
         action = env.get_action(target)
         done = env.step(action)
-        env.render()
+        if show_animation: env.render()
         print("Timestep: {}  Error: {:.4f}".format(env.timestep, np.linalg.norm(action)))
