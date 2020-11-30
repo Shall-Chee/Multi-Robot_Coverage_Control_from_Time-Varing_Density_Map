@@ -104,10 +104,10 @@ class CVT:
 
                     if y_intersect <= Y_MAX and y_intersect > Y_MIN and (x_intersect > X_MAX or x_intersect < X_MIN):
                         far_point = np.array([y_intersect, ymax])
-                        # plt.plot([y_intersect, v2[0]], [ymax, v2[1]], color='k')
+                        plt.plot([y_intersect, v2[0]], [ymax, v2[1]], color='k')
                     else:
                         far_point = np.array([xmax, x_intersect])
-                        # plt.plot([xmax, v2[0]], [x_intersect, v2[1]], color='k')
+                        plt.plot([xmax, v2[0]], [x_intersect, v2[1]], color='k')
 
                     new_region.append(len(new_vertices))
                     new_vertices.append(far_point.tolist())
@@ -134,7 +134,6 @@ class CVT:
                 new_region.append(len(new_vertices))
                 new_vertices.append([len(self.distribution[0]), len(self.distribution)])
             elif xmin <= 0 and xmax >= len(self.distribution[0]):
-                # print(np.array(new_vertices)[new_region])
                 new_vertices_coor = np.array(new_vertices)[new_region]
                 new_vertices_sorted = new_vertices_coor[new_vertices_coor[:, 0].argsort()]
                 new_region.append(len(new_vertices))
@@ -302,6 +301,8 @@ if __name__ == "__main__":
     done = False  # flag indicating whether reach terminate state
     timestep = 0
     fig = plt.figure()
+    ax = plt.gca()
+    x0, y0 = 0, 0
 
     while not done:
         # Divide Regions on Distribution Map
@@ -331,11 +332,13 @@ if __name__ == "__main__":
         print("Timestep: {}  Error: {:.4f}".format(timestep, np.linalg.norm(action)))
 
         # Render
-        voronoi_plot_2d(cvt.vor)
+        voronoi_plot_2d(cvt.vor, ax=ax)
         v_plot = plt.imshow(cvt.distribution)
         plt.gca().invert_yaxis()
-        colorbar = plt.colorbar()
         plt.plot((robot_pos - action)[:, 0], (robot_pos - action)[:, 1], 'ro', label='robot_position')
+        plt.gcf().canvas.mpl_connect(
+            'key_release_event',
+            lambda event: [exit(0) if event.key == 'escape' else None])
         plt.xlim(X_MIN - X_SIZE * 0.1, X_MAX + X_SIZE * 0.1)
         plt.ylim(Y_MIN - Y_SIZE * 0.1, Y_MAX + Y_SIZE * 0.1)
         plt.plot(vertices[:, 0], vertices[:, 1], 'bo', label='vertices')
@@ -344,7 +347,10 @@ if __name__ == "__main__":
         plt.quiver(robot_pos[:, 0], robot_pos[:, 1], action[:, 0], action[:, 1], angles='xy', scale_units='xy', scale=1)
         plt.legend(loc="upper left")
         plt.title(f'number of robots = {robot_cnt}')
-        plt.show()
+        plt.pause(0.1)
+        plt.cla()
 
         # Terminal State
         if done: break
+
+    plt.close()
