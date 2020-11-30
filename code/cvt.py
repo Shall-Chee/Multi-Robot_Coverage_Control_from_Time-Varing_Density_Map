@@ -217,36 +217,25 @@ class CVT:
         polygons = [vertices[t] for t in regions]
         centroids = []
 
-        for i in range(len(polygons)):
-            # extract grid extrema of the polygon
-            polygon = polygons[i]
-            xmin = np.min(polygon[:, 0])
-            xmax = np.max(polygon[:, 0])
-            ymin = np.min(polygon[:, 1])
-            ymax = np.max(polygon[:, 1])
-
-            # compute the centroid: equation 2 
-            N = 0
-            D = 0
+        for polygon in polygons:
             if len(polygon) <= 1:
                 continue
-            hull = Delaunay(polygon)
 
-            for j in range(int(xmin), int(xmax)):
-                for k in range(int(ymin), int(ymax)):
-                    p = np.array([j, k])
-                    vo_ind = hull.find_simplex(p)
-                    if vo_ind >= 0:
-                        p = np.array([j, k])
-                        if k < 0 or k > len(self.distribution) - 1:
-                            continue
-                        if j < 0 or j > len(self.distribution[0]) - 1:
-                            continue
-                        density = self.distribution[k, j]
-                        if density == 0:
-                            continue
-                        N += np.multiply(p, density)
-                        D += density
+            # extract grid extrema of the polygon
+            xmin = int(np.min(polygon[:, 0]))
+            xmax = int(np.max(polygon[:, 0]))
+            ymin = int(np.min(polygon[:, 1]))
+            ymax = int(np.max(polygon[:, 1]))
+
+            X, Y = np.meshgrid(np.arange(xmin, xmax), np.arange(ymin, ymax))
+            points = np.hstack((X.reshape(-1, 1), Y.reshape(-1, 1)))
+
+            # compute the centroid: equation 2
+            hull = Delaunay(polygon)
+            indices = hull.find_simplex(points)
+            density = np.where(indices >= 0, self.distribution[points[:, 1], points[:, 0]], 0)
+            N = (points * density.reshape(-1, 1)).sum(axis=0)
+            D = density.sum()
             centroids.append(N / D)
         return np.array(centroids)
 
@@ -256,35 +245,25 @@ class CVT:
         h = []
 
         for i in range(len(polygons)):
-            # extract grid extrema of the polygon
             polygon = polygons[i]
-            xmin = np.min(polygon[:, 0])
-            xmax = np.max(polygon[:, 0])
-            ymin = np.min(polygon[:, 1])
-            ymax = np.max(polygon[:, 1])
-
-            # compute the centroid: equation 2 
-            cost = 0
             if len(polygon) <= 1:
                 continue
+
+            # extract grid extrema of the polygon
+            polygon = polygons[i]
+            xmin = int(np.min(polygon[:, 0]))
+            xmax = int(np.max(polygon[:, 0]))
+            ymin = int(np.min(polygon[:, 1]))
+            ymax = int(np.max(polygon[:, 1]))
+
+            X, Y = np.meshgrid(np.arange(xmin, xmax), np.arange(ymin, ymax))
+            points = np.hstack((X.reshape(-1, 1), Y.reshape(-1, 1)))
+
+            # compute the centroid: equation 2
             hull = Delaunay(polygon)
-
-            for j in range(int(xmin), int(xmax)):
-                for k in range(int(ymin), int(ymax)):
-                    p = np.array([j, k])
-                    vo_ind = hull.find_simplex(p)
-                    if vo_ind >= 0:
-                        p = np.array([j, k])
-                        if k < 0 or k > len(self.distribution) - 1:
-                            continue
-                        if j < 0 or j > len(self.distribution[0]) - 1:
-                            continue
-                        density = self.distribution[k, j]
-                        if density == 0:
-                            continue
-                        cost += np.multiply((p - centroids[i])[0] ** 2 + (p - centroids[i])[1] ** 2, density)
-                        # cost += density
-
+            indices = hull.find_simplex(points)
+            density = np.where(indices >= 0, self.distribution[points[:, 1], points[:, 0]], 0)
+            cost = (((points - centroids[i])**2).sum(axis=1) * density).sum()
             h.append(cost)
         return np.array(h)
 
