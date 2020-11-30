@@ -11,6 +11,8 @@ Y_MAX = 127
 X_SIZE = X_MAX - X_MIN
 Y_SIZE = Y_MAX - Y_MIN
 
+DUMMY_CORNER = np.array([[999, 999], [-999, 999], [999, -999], [-999, -999]])
+
 DENSITY_MIN = 0.01
 DENSITY_MAX = 255
 

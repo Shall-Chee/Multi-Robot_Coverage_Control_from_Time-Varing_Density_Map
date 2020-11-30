@@ -51,6 +51,8 @@ class CVT:
             all_ridges.setdefault(p1, []).append((p2, v1, v2))
             all_ridges.setdefault(p2, []).append((p1, v1, v2))
 
+        self.new_lines = []
+
         # Reconstruct infinite regions
         # print(f"point_region: {vor.point_region}")
         for p1, region in enumerate(vor.point_region):  # Index of the Voronoi region for each input point.
@@ -104,10 +106,12 @@ class CVT:
 
                     if y_intersect <= Y_MAX and y_intersect > Y_MIN and (x_intersect > X_MAX or x_intersect < X_MIN):
                         far_point = np.array([y_intersect, ymax])
-                        plt.plot([y_intersect, v2[0]], [ymax, v2[1]], color='k')
+                        self.new_lines.append(([y_intersect, v2[0]], [ymax, v2[1]]))
+                        # plt.plot([y_intersect, v2[0]], [ymax, v2[1]], color='k')
                     else:
                         far_point = np.array([xmax, x_intersect])
-                        plt.plot([xmax, v2[0]], [x_intersect, v2[1]], color='k')
+                        self.new_lines.append(([xmax, v2[0]], [x_intersect, v2[1]]))
+                        # plt.plot([xmax, v2[0]], [x_intersect, v2[1]], color='k')
 
                     new_region.append(len(new_vertices))
                     new_vertices.append(far_point.tolist())
@@ -304,18 +308,16 @@ if __name__ == "__main__":
     ax = plt.gca()
     x0, y0 = 0, 0
 
-    while not done:
-        # Divide Regions on Distribution Map
-        cvt = CVT(distribution, robot_cnt, robot_pos)
-        regions, vertices = cvt.voronoi_finite(cvt.vor)
-        centroids = cvt.compute_centroids(regions, vertices)
+    # Divide Regions on Distribution Map
+    cvt = CVT(distribution, robot_cnt, robot_pos)
 
+    while not done:
         # Local Planner: Towards Centroid
-        local_error = np.sqrt(np.sum((centroids - robot_pos) ** 2, axis=1))
-        local_planner = interp(robot_pos, centroids, (local_move_limit / (local_error + eps)).clip(max=1)) - robot_pos
+        local_error = np.sqrt(np.sum((cvt.centroids - robot_pos) ** 2, axis=1))
+        local_planner = interp(robot_pos, cvt.centroids, (local_move_limit / (local_error + eps)).clip(max=1)) - robot_pos
 
         # Global Planner: Better Allocate Cost
-        cost = cvt.compute_h(regions, vertices, centroids)
+        cost = cvt.compute_h(cvt.regions, cvt.vertices, cvt.centroids)
         cost_order = np.argsort(cost)
         min_ind, max_ind = cost_order[0], cost_order[-1]
         if cost[min_ind] / cost[max_ind] > cost_ratio_thresh: global_flag = False  # finish reallocation
@@ -328,11 +330,15 @@ if __name__ == "__main__":
         action = local_scale * local_planner + global_flag * global_scale * global_planner
         robot_pos += action
         timestep += 1
+        cvt.step(robot_pos)
         done = np.linalg.norm(action) < pos_error_thresh or timestep > max_timestep
         print("Timestep: {}  Error: {:.4f}".format(timestep, np.linalg.norm(action)))
 
         # Render
+        # voronoi_plot_2d(Voronoi(np.vstack((robot_pos, DUMMY_CORNER))), ax=ax)
         voronoi_plot_2d(cvt.vor, ax=ax)
+        for line in cvt.new_lines:
+            plt.plot(line[0], line[1], 'k')
         v_plot = plt.imshow(cvt.distribution)
         plt.gca().invert_yaxis()
         plt.plot((robot_pos - action)[:, 0], (robot_pos - action)[:, 1], 'ro', label='robot_position')
@@ -341,8 +347,8 @@ if __name__ == "__main__":
             lambda event: [exit(0) if event.key == 'escape' else None])
         plt.xlim(X_MIN - X_SIZE * 0.1, X_MAX + X_SIZE * 0.1)
         plt.ylim(Y_MIN - Y_SIZE * 0.1, Y_MAX + Y_SIZE * 0.1)
-        plt.plot(vertices[:, 0], vertices[:, 1], 'bo', label='vertices')
-        plt.plot(centroids[:, 0], centroids[:, 1], 'go', label='centroids')
+        plt.plot(cvt.vertices[:, 0], cvt.vertices[:, 1], 'bo', label='vertices')
+        plt.plot(cvt.centroids[:, 0], cvt.centroids[:, 1], 'go', label='centroids')
         plt.plot(robot_pos[:, 0], robot_pos[:, 1], 'co', label='new_robot_position')
         plt.quiver(robot_pos[:, 0], robot_pos[:, 1], action[:, 0], action[:, 1], angles='xy', scale_units='xy', scale=1)
         plt.legend(loc="upper left")
