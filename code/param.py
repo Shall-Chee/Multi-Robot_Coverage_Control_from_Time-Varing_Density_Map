@@ -20,12 +20,17 @@ eps = 1e-3  # a small number to prevent divide by zero
 
 # Simulation Parameters
 robot_cnt = 6
-max_timestep = 25
+max_timestep = 200
 pos_error_thresh = 0.1  # reach stability if position change smaller than this
+vor_duration = 5
 
 # Kinematics
-local_move_limit = 10
-global_move_limit = 20
-local_scale = 1
-global_scale = 1
-cost_ratio_thresh = 0.1
+local_move_limit = 30
+global_move_limit = 100
+local_scale = 0.5
+global_scale = 0.5
+cost_ratio_thresh = 0.2
+
+# Control
+Kp = 0.25
+Kd = -0.1
