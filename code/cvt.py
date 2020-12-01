@@ -28,7 +28,7 @@ class CVT:
 
         Returns
         -------
-        regions : list of tuples
+        regions : list of tuples (number of voronoi cell * number of vertices in each cell)
             Indices of vertices in each revised Voronoi regions.
         vertices : list of tuples
             Coordinates for revised Voronoi vertices. Same as coordinates
@@ -80,6 +80,8 @@ class CVT:
                     # vertices outside the range
                     new_region, new_vertices = self.intersect_outside_vertices(v1_coor, v2_coor, new_region,
                                                                                new_vertices, v1)
+
+                    self.new_lines.append(([v1_coor[0], v2_coor[0]], [v1_coor[1], v2_coor[1]]))
 
                 if v2 >= 0 and v1 >= 0:
                     new_region, new_vertices = self.intersect_outside_vertices(v2_coor, v1_coor, new_region,
@@ -182,19 +184,23 @@ class CVT:
         return new_regions, np.array(new_vertices)
 
     def intersect_outside_vertices(self, v1_coor, v2_coor, new_region, new_vertices, v1):
-        if v1_coor[0] < 0 or v1_coor[0] > len(self.distribution[0]):
+        # if (v1_coor[0] < 0 or v1_coor[0] > len(self.distribution[0])) and not (v2_coor[0] < 0 or v2_coor[0] > len(self.distribution[0])) and not (v2_coor[1] < 0 or v2_coor[1] > len(self.distribution)):
+        if (v1_coor[0] < 0 or v1_coor[0] > len(self.distribution[0])):
             xmax = len(self.distribution[0]) if v1_coor[0] > len(self.distribution[0]) else 0
             x_intersect = (xmax - v1_coor[0]) / (v2_coor[0] - v1_coor[0]) * (v2_coor[1] - v1_coor[1]) + v1_coor[1]
             if x_intersect >= 0 and x_intersect < len(self.distribution):
                 far_point = np.array([xmax, x_intersect])
+                # ind = np.where(new_region[:, 0] == xmax)
                 if v1 in new_region:
                     new_region.remove(v1)
+                
                 new_region.append(len(new_vertices))
                 new_vertices.append(far_point.tolist())
 
-                self.new_lines.append(([far_point[0], v2_coor[0]], [far_point[1], v2_coor[1]]))
+                # self.new_lines.append(([far_point[0], v2_coor[0]], [far_point[1], v2_coor[1]]))
 
-        if v1_coor[1] < 0 or v1_coor[1] > len(self.distribution):
+        # if (v1_coor[1] < 0 or v1_coor[1] > len(self.distribution)) and not (v2_coor[0] < 0 or v2_coor[0] > len(self.distribution[0])) and not (v2_coor[1] < 0 or v2_coor[1] > len(self.distribution)):
+        if (v1_coor[1] < 0 or v1_coor[1] > len(self.distribution)):
             ymax = len(self.distribution) if v1_coor[1] > len(self.distribution) else 0
             y_intersect = (ymax - v1_coor[1]) / (v2_coor[1] - v1_coor[1]) * (v2_coor[0] - v1_coor[0]) + v1_coor[0]
             if y_intersect >= 0 and y_intersect < len(self.distribution):
@@ -204,11 +210,7 @@ class CVT:
                 new_region.append(len(new_vertices))
                 new_vertices.append(far_point.tolist())
 
-                self.new_lines.append(([v1_coor[0], far_point[0]], [v1_coor[1], far_point[1]]))
-
-        if not (v1_coor[0] < 0 or v1_coor[0] > len(self.distribution[0])) and not (v1_coor[1] < 0 or v1_coor[1] > len(self.distribution)) and\
-            not (v2_coor[0] < 0 or v2_coor[0] > len(self.distribution[0])) and not (v2_coor[1] < 0 or v2_coor[1] > len(self.distribution)):
-            self.new_lines.append(([v1_coor[0], v2_coor[0]], [v1_coor[1], v2_coor[1]]))
+                # self.new_lines.append(([v1_coor[0], far_point[0]], [v1_coor[1], far_point[1]]))
 
         return new_region, new_vertices
 

@@ -1,7 +1,7 @@
 import numpy as np
 
 # Random Seed
-np.random.seed(0)
+# np.random.seed(0)
 
 # Constant
 X_MIN = 0
@@ -19,7 +19,9 @@ DENSITY_MAX = 255
 eps = 1e-3  # a small number to prevent divide by zero
 
 # Simulation Parameters
-robot_cnt = 6
+# robot_cnt = 6
+area_per_robo = 370
+distribution_lower_bound = 0
 max_timestep = 200
 pos_error_thresh = 0.1  # reach stability if position change smaller than this
 vor_duration = 5

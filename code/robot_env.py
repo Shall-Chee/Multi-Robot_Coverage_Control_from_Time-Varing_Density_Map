@@ -6,6 +6,7 @@ from param import *
 from helpers import *
 from cvt import CVT
 
+from scipy.spatial import ConvexHull, convex_hull_plot_2d
 
 class RobotEnv:
     def __init__(self, distribution, init_pos):
@@ -45,9 +46,14 @@ class RobotEnv:
         return target
 
     def render(self):
-        # voronoi_plot_2d(self.cvt.vor, ax=ax)
+        voronoi_plot_2d(self.cvt.vor, ax=ax)
         for line in self.cvt.new_lines:
             plt.plot(line[0], line[1], 'k')
+        # for region in self.cvt.regions:
+        #     points = self.cvt.vertices[region]
+        #     hull = ConvexHull(points)
+        #     for simplex in hull.simplices:
+        #         plt.plot(points[simplex, 0], points[simplex, 1], 'k-')
         plt.imshow(self.cvt.distribution)
         plt.gca().invert_yaxis()
         plt.xlim(X_MIN - X_SIZE * 0.1, X_MAX + X_SIZE * 0.1)
@@ -62,7 +68,7 @@ class RobotEnv:
         plt.legend(loc="upper left")
         plt.title(f'number of robots = {self.robot_cnt}')
         if make_gif: gif_maker('coverage_control.gif', fig_dir, self.timestep, done, dpi=200)
-        plt.pause(0.1)
+        plt.pause(0.001)
         plt.cla()
 
     def reset(self):
@@ -80,13 +86,19 @@ class RobotEnv:
         self.timestep += 1
         if self.timestep % vor_duration == 0: self.cvt.step(self.state)
         done = np.linalg.norm(action) < pos_error_thresh or self.timestep > max_timestep
-
+        if self.timestep > 10:
+            done = 1
         return done
 
 
 if __name__ == '__main__':
     # Read Distribution/Density Map
-    distribution = np.load('./target_distribution.npy')
+    # distribution = np.load('./target_distribution.npy')
+    distribution = np.load(os.path.abspath(os.curdir) + '/code/target_distribution.npy')
+    
+    size = np.where(distribution > distribution_lower_bound)
+    count_point = len(np.where(distribution > distribution_lower_bound)[1])
+    robot_cnt = round(count_point / area_per_robo)
     scatter_ratio = np.random.random((robot_cnt, 2))
     robot_pos = interp([X_MIN, Y_MIN], [X_MAX, Y_MAX], scatter_ratio)  # generate robot on random initial positions
 
