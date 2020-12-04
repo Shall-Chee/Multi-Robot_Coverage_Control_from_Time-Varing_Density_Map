@@ -34,3 +34,6 @@ cost_ratio_thresh = 0.2
 # Control
 Kp = 0.25
 Kd = -0.1
+
+# Render
+plot_padding = 0.01

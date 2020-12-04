@@ -330,7 +330,7 @@ if __name__ == "__main__":
         robot_pos += action
         robot_pos[:, 0], robot_pos[:, 1] = robot_pos[:, 0].clip(X_MIN, X_MAX), robot_pos[:, 1].clip(Y_MIN, Y_MAX)
         timestep += 1
-        if timestep % vor_duration == 0: cvt.step(robot_pos)
+        if timestep % vor_duration == 0: cvt.step(robot_pos.copy())
         done = np.linalg.norm(action) < pos_error_thresh or timestep > max_timestep
         print("Timestep: {}  Error: {:.4f}".format(timestep, np.linalg.norm(action)))
 
@@ -343,8 +343,8 @@ if __name__ == "__main__":
         plt.gcf().canvas.mpl_connect(
             'key_release_event',
             lambda event: [exit(0) if event.key == 'escape' else None])
-        plt.xlim(X_MIN - X_SIZE * 0.1, X_MAX + X_SIZE * 0.1)
-        plt.ylim(Y_MIN - Y_SIZE * 0.1, Y_MAX + Y_SIZE * 0.1)
+        plt.xlim(X_MIN - X_SIZE * plot_padding, X_MAX + X_SIZE * plot_padding)
+        plt.ylim(Y_MIN - Y_SIZE * plot_padding, Y_MAX + Y_SIZE * plot_padding)
         plt.plot(cvt.vertices[:, 0], cvt.vertices[:, 1], 'bo', label='vertices')
         # plt.plot(cvt.centroids[:, 0], cvt.centroids[:, 1], 'go', label='centroids')
         # plt.plot(prev_robot_pos[:, 0], prev_robot_pos[:, 1], 'co', label='prev_robot_position')

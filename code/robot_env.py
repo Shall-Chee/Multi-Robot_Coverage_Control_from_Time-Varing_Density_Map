@@ -45,13 +45,13 @@ class RobotEnv:
         return target
 
     def render(self):
-        # voronoi_plot_2d(self.cvt.vor, ax=ax)
+        voronoi_plot_2d(self.cvt.vor, ax=ax)
         for line in self.cvt.new_lines:
             plt.plot(line[0], line[1], 'k')
         plt.imshow(self.cvt.distribution)
         plt.gca().invert_yaxis()
-        plt.xlim(X_MIN - X_SIZE * 0.1, X_MAX + X_SIZE * 0.1)
-        plt.ylim(Y_MIN - Y_SIZE * 0.1, Y_MAX + Y_SIZE * 0.1)
+        plt.xlim(X_MIN - X_SIZE * plot_padding, X_MAX + X_SIZE * plot_padding)
+        plt.ylim(Y_MIN - Y_SIZE * plot_padding, Y_MAX + Y_SIZE * plot_padding)
         plt.plot(self.cvt.vertices[:, 0], self.cvt.vertices[:, 1], 'bo', label='vertices')
         plt.plot(self.cvt.centroids[:, 0], self.cvt.centroids[:, 1], 'go', label='centroids')
         plt.plot(self.prev_state[:, 0], self.prev_state[:, 1], 'co', label='prev_robot_position')
@@ -78,7 +78,7 @@ class RobotEnv:
         self.state[:, 0] = self.state[:, 0].clip(X_MIN, X_MAX)
         self.state[:, 1] = self.state[:, 1].clip(Y_MIN, Y_MAX)
         self.timestep += 1
-        if self.timestep % vor_duration == 0: self.cvt.step(self.state)
+        if self.timestep % vor_duration == 0: self.cvt.step(self.state.copy())
         done = np.linalg.norm(action) < pos_error_thresh or self.timestep > max_timestep
 
         return done
