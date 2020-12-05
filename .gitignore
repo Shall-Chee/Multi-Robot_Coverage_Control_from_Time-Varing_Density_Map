@@ -25,3 +25,8 @@ train_loss
 test_loss
 TestCases
 .spyproject
+cnn_output
+local
+exponential
+global
+result
