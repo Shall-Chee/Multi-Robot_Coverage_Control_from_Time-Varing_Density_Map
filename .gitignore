@@ -26,3 +26,5 @@ test_loss
 TestCases
 .spyproject
 fig
+result
+cnn_output

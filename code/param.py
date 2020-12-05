@@ -19,6 +19,8 @@ DENSITY_MAX = 255
 eps = 1e-3  # a small number to prevent divide by zero
 
 # Simulation Parameters
+area_per_robot = 350
+distribution_lower_bound = 5
 robot_cnt = 6
 max_timestep = 200
 pos_error_thresh = 0.1  # reach stability if position change smaller than this
@@ -34,3 +36,6 @@ cost_ratio_thresh = 0.2
 # Control
 Kp = 0.25
 Kd = -0.1
+
+# Render
+plot_padding = 0.01
