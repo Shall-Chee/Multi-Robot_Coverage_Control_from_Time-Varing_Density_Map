@@ -1,3 +1,7 @@
 ## MEAM 517 Final Project
 
-This repository is for saving course final project of UPenn MEAM 517 Control & Optimization in Robotics.
+Reformulated coverage objective, encoded by a locational cost, based on given time-varing density map.
+
+Improved path planning algorithms to avoid local minimum by adding exponentially decaying term.
+
+Developed decentralized coverage controllers to achieve centroidal Voronoi tessellations based on Lloyd Algorithm.
