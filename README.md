@@ -1,4 +1,4 @@
-## MEAM 517 Final Project
+# Multi-Robot Coverage Control from Time-Varing Density Map
 
 • Reformulated coverage objective, encoded by locational cost, based on given time-varying density map.
 
